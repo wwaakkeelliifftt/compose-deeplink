@@ -1,9 +1,6 @@
 package com.example.compose_deeplink
 
-import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -12,18 +9,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -33,71 +31,78 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.example.compose_deeplink.notify.Counter
-import com.example.compose_deeplink.notify.CounterNotificationBroadcastReceiver
 import com.example.compose_deeplink.notify.CounterNotificationService
+import com.example.compose_deeplink.notify.NotificationScreen
 import com.example.compose_deeplink.ui.theme.ComposedeeplinkTheme
 
-object Route {
-    const val HOME = "home"
-    const val DETAIL = "detail"
-
-    const val NOTIFY = "notification"
+sealed class Screen(val route: String) {
+    object Home : Screen("home")
+    object Detail : Screen("detail")
+    object Notify : Screen("notification")
 }
 
 object Arg {
-    const val ID = "id"
     const val COUNTER = "counter"
+    const val NAME = "name"
 }
 
 
 class MainActivity : ComponentActivity() {
 
-    lateinit var navController: NavHostController
+    private lateinit var navController: NavHostController
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val deeplink = resources.getString(R.string.app_deeplink)
+        val deeplink = "https://" + resources.getString(R.string.app_deeplink) + "/"
+
+        val notifyDeeplink = resources.getString(R.string.notify_app_deeplink)
+        val detailDeeplink = resources.getString(R.string.detail_app_deeplink)
+
         val notificationService = CounterNotificationService(applicationContext)
 
         setContent {
             ComposedeeplinkTheme {
+                var counter by remember { mutableStateOf(0) }
+                Counter.val_ld.observe(this) {
+                    counter = it
+                }
+
                 navController = rememberNavController()
-                NavHost(navController = navController, startDestination = Route.HOME) {
-                    composable(route = Route.HOME) {
+                NavHost(navController = navController, startDestination = Screen.Home.route) {
+                    composable(route = Screen.Home.route) {
                         HomeScreen(navController)
                     }
                     composable(
-                        route = Route.DETAIL,
+                        route = Screen.Detail.route,
                         deepLinks = listOf(
                             navDeepLink {
-                                uriPattern = "https://$deeplink/{${Arg.ID}}"
+                                uriPattern = "$detailDeeplink/{counter}" // Arg.COUNTER == counter
                                 action = Intent.ACTION_VIEW
-                            }
-                        ),
+                            }),
                         arguments = listOf(
-                            navArgument(Arg.ID) {
+                            navArgument("path") {
+                                type = NavType.StringType
+                                defaultValue = "DEFAULT"
+                            },
+                            navArgument(Arg.COUNTER) {
                                 type = NavType.IntType
-                                defaultValue = -1
+                                defaultValue = -44
                             }
                         )
                     ) { navBackStackEntry ->
-                        val id = navBackStackEntry.arguments?.getInt(Arg.ID)
-                        DetailScreen(id = id ?: -666)
+                        val pathFrom = navBackStackEntry.arguments?.getString(Arg.NAME) ?: "empty_nav_back_stack"
+                        val cnt = navBackStackEntry.arguments?.getInt(Arg.COUNTER) ?: (counter * 2)
+                        DetailScreen(counter = cnt, screenName = pathFrom)
                     }
                     composable(
-                        route = Route.NOTIFY,
-                        arguments = listOf(
-                            navArgument(Arg.COUNTER) {
-                                type = NavType.IntType
-                                defaultValue = -1
-                            }
-                        ),
-                        deepLinks = listOf(navDeepLink {
-                            uriPattern = "https://$deeplink/{${Route.NOTIFY}}"
-                            action = Intent.ACTION_VIEW
-                        })
+                        route = Screen.Notify.route,
+                        deepLinks = listOf(
+                            navDeepLink {
+                                uriPattern = notifyDeeplink
+                                action = Intent.ACTION_VIEW
+                            })
                     ) {
-                        NotificationScreen(service = notificationService, cntx = LocalContext.current)
+                        NotificationScreen(service = notificationService, cntx = LocalContext.current, counter)
                     }
                 }
 
@@ -107,8 +112,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        navController.handleDeepLink(intent)
+        Toast.makeText(applicationContext, "HANDLE INTENT", Toast.LENGTH_SHORT).show()
     }
+
 }
 
 @Composable
@@ -116,12 +122,12 @@ fun HomeScreen(navController: NavController) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Button(onClick = {
-                navController.navigate(Route.DETAIL)
+                navController.navigate(Screen.Detail.route)
             }) {
                 Text(text = "To detail screen")
             }
             Button(onClick = {
-                navController.navigate(Route.NOTIFY)
+                navController.navigate(Screen.Notify.route)
             }) {
                 Text(text = "GoTo Notification Screen")
             }
@@ -131,53 +137,19 @@ fun HomeScreen(navController: NavController) {
 }
 
 @Composable
-fun DetailScreen(id: Int) {
+fun DetailScreen(screenName: String, counter: Int) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.LightGray),
-        contentAlignment = Alignment.Center
-    ) {
-        Row {
-            Text(text = "The ID is: ")
-            Text(text = "$id", fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
-@Composable
-fun NotificationScreen(service: CounterNotificationService, cntx: Context) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Gray),
+            .background(Color.Yellow),
         contentAlignment = Alignment.Center
     ) {
         Column {
-            Button(
-                onClick = {
-                    service.showNotification(Counter.value)
-            }) {
-                Text(text = "Run counter")
+            Text(text = "CURRENT SCREED: $screenName")
+            Row {
+                Text(text = "The current count is: ")
+                Text(text = "$counter", fontWeight = FontWeight.SemiBold)
             }
-            Text(text = "current count: ${Counter.value}")
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(onClick = {
-                val pi = PendingIntent.getBroadcast(
-                    cntx,
-                    2,
-                    Intent(cntx, CounterNotificationBroadcastReceiver::class.java).apply {
-                        putExtra(Counter.FLAG_RESET, 0)
-                        Toast.makeText(cntx, "FLAG_RESET", Toast.LENGTH_SHORT).show()
-                    },
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_MUTABLE else 0
-                )
-                pi.send()
-            }) {
-                Text(text = "RESET COUNTER")
-            }
-
         }
 
     }

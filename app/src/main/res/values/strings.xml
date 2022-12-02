@@ -3,4 +3,7 @@
 
     <string name="app_deeplink">compose-deeplink.dev</string>
 
+    <string name="notify_app_deeplink">myapp://notification</string>
+    <string name="detail_app_deeplink">deeplink://detail</string>
+
 </resources>

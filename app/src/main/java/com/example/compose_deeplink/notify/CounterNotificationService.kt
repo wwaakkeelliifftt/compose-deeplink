@@ -2,6 +2,7 @@ package com.example.compose_deeplink.notify
 
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.TaskStackBuilder
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -9,7 +10,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.net.toUri
 import com.example.compose_deeplink.MainActivity
 import com.example.compose_deeplink.R
-import com.example.compose_deeplink.Route
 
 class CounterNotificationService(
      private val context: Context
@@ -22,25 +22,40 @@ class CounterNotificationService(
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     fun showNotification(counter: Int) {
-        val activityIntent = Intent(
+        val notiDeeplink = context.resources.getString(R.string.notify_app_deeplink)
+        val detailDeeplink = context.resources.getString(R.string.detail_app_deeplink)
+
+        val counterIntent = Intent(
             Intent.ACTION_VIEW,
-            Route.NOTIFY.toUri(),
+            (notiDeeplink /** + Screen.Notify.route) ?? */ ).toUri(),
             context,
             MainActivity::class.java
         )
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            1,
-            activityIntent,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
-        )
+        val pendingIntent = TaskStackBuilder.create(context).run {
+            addNextIntentWithParentStack(counterIntent)
+            getPendingIntent(11,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else
+                    PendingIntent.FLAG_CANCEL_CURRENT
+            )
+        }
+
+        val gotoDetailIntent = TaskStackBuilder.create(context).run {
+            addNextIntentWithParentStack(
+                Intent(
+                    Intent.ACTION_VIEW,
+//                    ("$deeplinkForDetail${Screen.Detail.route}/${counter * 2}").toUri(),
+                    ("$detailDeeplink${counter * 2}").toUri(),
+                    context,
+                    MainActivity::class.java
+                )
+            )
+            getPendingIntent(55, PendingIntent.FLAG_IMMUTABLE)
+        }
 
         val incrementIntent = PendingIntent.getBroadcast(
             context,
             2,
-            Intent(context, CounterNotificationBroadcastReceiver::class.java).apply {
-                putExtra(Counter.FLAG_RESET, 11)
-            },
+            Intent(context, CounterNotificationBroadcastReceiver::class.java),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
         )
 
@@ -53,6 +68,11 @@ class CounterNotificationService(
                 R.drawable.baseline_rabbit_24,
                 "inc +1",
                 incrementIntent
+            )
+            .addAction(
+                R.drawable.baseline_rabbit_24,
+                "goto 'detail' deeplink",
+                gotoDetailIntent
             )
             .build()
 
