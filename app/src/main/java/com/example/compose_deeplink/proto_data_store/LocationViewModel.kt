@@ -1,6 +1,7 @@
 package com.example.compose_deeplink.proto_data_store
 
 
+import android.net.Network
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -13,6 +14,17 @@ import kotlinx.coroutines.launch
 
 class LocationViewModel: ViewModel() {
 
+    private var _gpsEnabled = MutableStateFlow(false)
+    val gpsEnabled: StateFlow<Boolean> get() = _gpsEnabled
+
+    fun checkLocationStatus(isGps: Boolean) = flow<Boolean>{
+        viewModelScope.launch {
+            update(isGps)
+        }
+    }
+    private fun update(gps: Boolean) = flow<Boolean> {
+        _gpsEnabled.emit(gps)
+    }
 
     private var _location = MutableLiveData(Location(11.11, 4.4))
     val location: LiveData<Location> get() = _location
@@ -27,5 +39,7 @@ class LocationViewModel: ViewModel() {
         _location.postValue(Location(lat, lng))
         loc(lat, lng)
     }
+
+
 
 }

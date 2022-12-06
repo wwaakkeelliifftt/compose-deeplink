@@ -1,9 +1,11 @@
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Looper
+import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Icon
@@ -44,6 +47,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.compose_deeplink.MainActivity
@@ -219,6 +224,9 @@ fun PermissionScreen(activity: MainActivity, provider: FusedLocationProviderClie
             .padding(12.dp)
         ) {
 
+            val gps = vm.gpsEnabled.collectAsState()
+            val gpsR = remember { gps }
+
             fun updateLocation() {
                 activity.requestLocationPermission()
                 try {
@@ -242,22 +250,71 @@ fun PermissionScreen(activity: MainActivity, provider: FusedLocationProviderClie
                 }
             }
 
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "Coordinates CURRENT:", fontWeight = FontWeight.ExtraLight, fontSize = 22.sp)
+                Text(text = "Coordinates LAST:", fontWeight = FontWeight.ExtraLight, fontSize = 22.sp)
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "latitude - ${location.lat}", fontWeight = FontWeight.Light)
+                Text(text = "latitude - ${location.lat}", fontWeight = FontWeight.Light)
+            }
+            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Text(text = "longitude - ${location.lng}", fontWeight = FontWeight.Light)
+                Text(text = "longitude - ${location.lng}", fontWeight = FontWeight.Light)
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = "GPS enabled: ${gpsR.value}")
 
-            Text(text = "Coordinates:", fontWeight = FontWeight.ExtraLight, fontSize = 26.sp)
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = "latitude - ${location.lat}", fontWeight = FontWeight.Light)
-            Text(text = "longitude - ${location.lng}")
 
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.BottomCenter
             ) {
-                Button(
-                    modifier = Modifier
-                        .fillMaxWidth(0.8f),
-                    onClick = { updateLocation() }
-                ) {
-                    Text(text = "update location")
+
+                var openDialog by remember { mutableStateOf(false) }
+                if (openDialog) {
+                    AlertDialog(
+                        onDismissRequest = { openDialog = false },
+                        title = { Text(text = "Attention") },
+                        text = { 
+                            Column {
+                                Text(text = "Please, turn ON your gps and network") 
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(text = "GPS status: ${vm.gpsEnabled}", fontWeight = FontWeight.Light)
+                            } },
+                        buttons = {
+                            Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                                Button(onClick = { openDialog = false }, modifier = Modifier.fillMaxWidth(0.7f)) {
+                                    Text(text = "close")
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                                Button(onClick = {
+                                    activity.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                                }, modifier = Modifier.fillMaxWidth(0.7f)) {
+                                    Text(text = "check")
+                                }
+                            }
+
+                        }
+                    )
+                }
+                Column {
+                    Button(
+                        modifier = Modifier.fillMaxWidth(0.8f),
+                        onClick = { openDialog = true }
+                    ) {
+                        Text(text = "open check dialog")
+                    }
+
+                    Button(
+                        modifier = Modifier.fillMaxWidth(0.8f),
+                        onClick = { updateLocation() }
+                    ) {
+                        Text(text = "update location")
+                    }
                 }
             }
 

@@ -13,7 +13,6 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
@@ -63,6 +64,8 @@ import com.example.compose_deeplink.proto_data_store.requestLocationPermission
 import com.example.compose_deeplink.ui.theme.ComposedeeplinkTheme
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 sealed class Screen(val route: String) {
@@ -149,12 +152,20 @@ class MainActivity : ComponentActivity() {
                     composable(route = Screen.Serialize.route) {
                         SerializeScreen(
                             context = LocalContext.current,
-                            provider = fusedLocationProvider!!)
+                            provider = fusedLocationProvider!!
+                        )
                     }
                 }
 
             }
         }
+    }
+
+    private fun isGpsEnabled(): Boolean {
+        val gps = LocationManagerCompat.isLocationEnabled(locationManager)
+        Toast.makeText(this, "GPS=$gps", Toast.LENGTH_LONG).show()
+        vm.checkLocationStatus(gps)
+        return gps
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -182,6 +193,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        fusedLocationProvider = null
+    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<String>,
@@ -190,6 +206,7 @@ class MainActivity : ComponentActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         when (requestCode) {
             MY_PERMISSIONS_REQUEST_LOCATION -> {
+                Toast.makeText(this, "MY_PERMISSIONS_REQUEST_LOCATION", Toast.LENGTH_SHORT).show()
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
@@ -239,6 +256,7 @@ class MainActivity : ComponentActivity() {
                 return
             }
             MY_PERMISSIONS_REQUEST_BACKGROUND_LOCATION -> {
+                Toast.makeText(this, "MY_PERMISSIONS_REQUEST_BACKGROUND_LOCATION", Toast.LENGTH_SHORT).show()
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 

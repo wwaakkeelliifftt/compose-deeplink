@@ -13,6 +13,7 @@ import com.example.compose_deeplink.MainActivity
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.Priority
 import kotlinx.collections.immutable.mutate
 
 internal const val MY_PERMISSIONS_REQUEST_LOCATION = 99
@@ -37,12 +38,12 @@ suspend fun MainActivity.updateLocation(location: Location) {
 }
 
 val MainActivity.locationRequest: LocationRequest
-    get() = LocationRequest.create().apply {
-        interval = 5000
-        fastestInterval = 100
-        priority = LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY
-        maxWaitTime = 60000
-    }
+    get() = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000)
+        .setWaitForAccurateLocation(false)
+        .setMinUpdateIntervalMillis(100)
+        .setMaxUpdateDelayMillis(100000)
+        .build()
+
 
 val MainActivity.locationCallback: LocationCallback
     get() = object : LocationCallback() {
